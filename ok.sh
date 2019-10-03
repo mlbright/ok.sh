@@ -52,6 +52,7 @@
 # * OK_SH_MARKDOWN=${OK_SH_MARKDOWN}
 #   Output some text in Markdown format.
 
+# shellcheck disable=SC2155
 export NAME=$(basename "$0")
 export VERSION='0.5.1'
 
@@ -220,6 +221,7 @@ __main() {
     ' INT TERM EXIT
 
     while getopts Vhjqrvxy opt; do
+        # shellcheck disable=SC2220
         case $opt in
         V)  printf 'Version: %s\n' $VERSION
             exit;;
@@ -391,6 +393,7 @@ _format_json() {
     local is_array=0
     local use_env=1
     while getopts a opt; do
+        # shellcheck disable=SC2220
         case $opt in
         a)  is_array=1; unset use_env;;
         esac
@@ -403,8 +406,7 @@ _format_json() {
     function isnum(x){ return (x == x + 0) }
     function isnull(x){ return (x == "null" ) }
     function isbool(x){ if (x == "true" || x == "false") return 1 }
-    function isnested(x) { if (substr(x, 0, 1) == "[" \
-        || substr(x, 0, 1) == "{") return 1 }
+    function isnested(x) { if (substr(x, 0, 1) == "[" || substr(x, 0, 1) == "{") return 1 }
     function castOrQuote(val) {
         if (!isbool(val) && !isnum(val) && !isnull(val) && !isnested(val)) {
             sub(/^('\''|")/, "", val) # Remove surrounding quotes
@@ -510,6 +512,7 @@ _filter_json() {
     fi
 
     "${OK_SH_JQ_BIN}" -c -r "${_filter}"
+    # shellcheck disable=SC2181
     [ $? -eq 0 ] || printf 'jq parse error; invalid JSON.\n' 1>&2
 }
 
@@ -623,6 +626,7 @@ _opts_qs() {
     #     _opts_qs "$@"
     #     _get "/some/path${qs}"
 
+    # shellcheck disable=SC2155
     local querystring=$(_format_urlencode "$@")
     qs="${querystring:+?$querystring}"
 }
@@ -1491,7 +1495,7 @@ fork_repo() {
     #   A jq filter to apply to the return data.
     #
     # POST data may also be passed as keyword arguments:
-    # 
+    #
     # * `organization` (The organization to clone into; default: your personal account)
 
     shift 2
