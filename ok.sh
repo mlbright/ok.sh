@@ -704,7 +704,7 @@ _request() {
     [ $OK_SH_VERBOSE -eq 3 ] && trace_curl=1
 
     [ "$OK_SH_VERBOSE" -eq 1 ] && set -x
-    # shellcheck disable=SC2086
+
     curl -nsSig \
         -H "Accept: ${OK_SH_ACCEPT}" \
         -H "Content-Type: ${content_type}" \
@@ -878,11 +878,10 @@ _get() {
     # that call this function can pass these parameters in one of two ways:
     # explicitly as a keyword arg or implicitly by setting variables of the same
     # names within the local scope.
-    # shellcheck disable=SC2086
     if [ -z ${_follow_next+x} ] || [ -z "${_follow_next}" ]; then
         local _follow_next=1
     fi
-    # shellcheck disable=SC2086
+
     if [ -z ${_follow_next_limit+x} ] || [ -z "${_follow_next_limit}" ]; then
         local _follow_next_limit=50
     fi
@@ -2372,10 +2371,52 @@ list_users() {
 
     local qs
 
-    _opts_pagination "$@"
     _opts_filter "$@"
     _opts_qs "$@"
-    _get "/users" | _filter_json "$_filter"
+
+    local status_code
+    local status_text
+    local next_url
+
+    # If the variable is unset or empty set it to a default value. Functions
+    # that call this function can pass these parameters in one of two ways:
+    # explicitly as a keyword arg or implicitly by setting variables of the same
+    # names within the local scope.
+    if [ -z ${_follow_next+x} ] || [ -z "${_follow_next}" ]; then
+        local _follow_next=1
+    fi
+
+    if [ -z ${_follow_next_limit+x} ] || [ -z "${_follow_next_limit}" ]; then
+        local _follow_next_limit=50
+    fi
+
+    _opts_pagination "$@"
+
+    _request "/users" | perl -p -e 's/link: /Link: /' | _response status_code status_text Link_next | {
+        read -r status_code
+        read -r status_text
+        read -r next_url
+
+        case "$status_code" in
+            20*) : ;;
+            4*) printf 'Client Error: %s %s\n' \
+                "$status_code" "$status_text" 1>&2; exit 1 ;;
+            5*) printf 'Server Error: %s %s\n' \
+                "$status_code" "$status_text" 1>&2; exit 1 ;;
+        esac
+
+        # Output response body.
+        cat
+
+        [ "$_follow_next" -eq 1 ] || return
+
+        _log info "Remaining next link follows: ${_follow_next_limit}"
+        if [ -n "$next_url" ] && [ $_follow_next_limit -gt 0 ] ; then
+            _follow_next_limit=$(( _follow_next_limit - 1 ))
+
+            _get "$next_url" "_follow_next_limit=${_follow_next_limit}"
+        fi
+    } | _filter_json "$_filter"
 }
 
 labels() {
